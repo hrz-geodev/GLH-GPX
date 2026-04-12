@@ -81,9 +81,6 @@ GLH_GPX/
 │   ├── GPX_Volunteer1/
 │   │   ├── Timeline.json
 │   │   └── *.gpx
-│   ├── GPX_hrz/
-│   │   ├── location-history_hrz.json
-│   │   └── *.gpx
 │
 ├── interim/
 │   └── <volunteer_id>/
