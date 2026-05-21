@@ -1,569 +1,173 @@
-# GLH–GPX Alignment Pipeline
+# glh_correct — characterise and correct Google Location History error
 
-This repository contains a unified, reproducible pipeline for aligning Google Location History (GLH) data with high-accuracy GPX tracks, producing point-level matched datasets suitable for:
+`glh_correct` is the inference-time release of a research pipeline that
+characterises Google Location History (GLH) positional error against
+high-precision GPS reference data and applies trained correctors to new
+GLH exports.
 
-- Spatial accuracy analysis
-- Machine-learning correction models
-- GIS visualisation (ArcGIS / QGIS)
+It accompanies our paper (in preparation) and is intended to let other
+researchers and practitioners:
 
-The pipeline supports multiple GLH export formats, handles GPS cleaning and interpolation, performs automated quality verification and filtering, and generates quality-controlled training samples.
+1. Quantify how trustworthy a given GLH point is (per-point uncertainty
+   estimate, in metres) via a trained **XGBoost magnitude indicator**.
+2. Snap GLH points to the nearest network edge within a configurable
+   radius via a **rule-based corrector** (Stage 2).
+3. Map-match a whole GLH session to a road / footway network via a
+   **Newson-Krumm-style HMM** (Stage 5).
 
----
-
-# 1. What this pipeline does (end-to-end)
-
-For each volunteer:
-
-## 1. Parse GLH data
-
-Supports:
-
-- Legacy list-based GLH exports
-- Newer `semanticSegments` Timeline exports
-
-Normalises all formats into a canonical point table.
+The pipeline was developed on 8 paired tracks with simultaneous GLH +
+sub-metre GPX reference, collected in Edinburgh and across five UK
+control regions (Manchester, Glasgow, London, Lancashire, Cumbria).
 
 ---
 
-## 2. Parse GPX data
+## What's in the box
 
-- Reads all GPX files in a volunteer folder
-- Extracts timestamped GPS points (UTC)
-
----
-
-## 3. Clean GPS trajectories
-
-- Removes duplicate points
-- Removes implausible jumps (speed threshold)
-- Splits GPS into segments by large time gaps
-
----
-
-## 4. Time-align GPS to GLH
-
-Interpolates GPS positions at exact GLH timestamps.
-
-Only accepts interpolation when:
-
-- GPS points bracket the GLH timestamp
-- Both points belong to the same GPS segment
-- Bracket gap ≤ configurable threshold (default 120 s)
-
----
-
-## 5. Quality control & structuring
-
-Assigns:
-
-- `segment_id` (GLH segment)
-- `journey_id` (groups segments by temporal continuity)
-- `match_quality_tier` (A–D based on interpolation gap)
-
-Generates:
-
-- spatial error statistics
-- segment-level diagnostics
-- journey-level diagnostics
-- quality reports
-
----
-
-## 6. Automated segment filtering
-
-Low-quality trajectory segments are automatically identified and removed based on spatial error metrics.
-
-Default filtering rule:
-
-```text
-remove segment if:
-  median_error_m > 100
-  OR
-  more than 30% of points have error_m > 200
 ```
-
-This produces cleaner training-ready datasets for downstream modelling.
-
----
-
-## 7. Export GIS-ready outputs
-
-Exports:
-
-- GLH matched points (GPX)
-- GPS matched points (GPX)
-- GLH–GPS connection lines (GeoJSON)
-- Attribute join table (CSV)
-
----
-
-# 2. Supported GLH formats
-
-The pipeline automatically detects the GLH format.
-
----
-
-## Legacy format
-
-Top-level JSON list.
-
-Uses fields such as:
-
-- `activity.start / end`
-- `visit.placeLocation`
-- `timelinePath.durationMinutesOffsetFromStartTime`
-
----
-
-## New Timeline format
-
-JSON object with `semanticSegments`.
-
-Uses:
-
-- `semanticSegments.timelinePath.time`
-
-Supports richer metadata when available.
-
----
-
-Both formats are converted into the same canonical schema so they can be combined within one unified training dataset.
-
----
-
-# 3. Repository structure
-
-```text
-GLH_GPX/
-│
-├── raw_data/
-│   ├── GPX_Volunteer1/
-│   │   ├── Timeline.json
-│   │   └── *.gpx
-│
-├── interim/
-│   └── <volunteer_id>/
-│       ├── glh_points.csv
-│       ├── gps_points_clean.csv
-│       ├── gps_at_glh_timestamps.csv
-│       ├── gps_at_glh_timestamps_with_tiers.csv
-│       ├── glh_timeline_segments_with_journeys.csv
-│       ├── qc_match.txt
-│       ├── qc_match_detailed.txt
-│       ├── debug_Vxxx_with_error.csv
-│       ├── debug_Vxxx_segment_error_profile.csv
-│       ├── debug_Vxxx_journey_error_profile.csv
-│       ├── segment_filter_profile.csv
-│       ├── bad_segments_to_remove.csv
-│       ├── gps_at_glh_timestamps_with_tiers_segment_filtered.csv
-│       ├── segment_filter_report.txt
-│       ├── exports_glh_matched_points.gpx
-│       ├── exports_gps_matched_points.gpx
-│       ├── exports_matched_pairs_lines.geojson
-│       └── exports_matched_pairs_join_table.csv
-│
-├── training_data/
-│
-└── src/
-    ├── io_glh_unified.py
-    ├── io_gpx_points.py
-    ├── run_volunteer_pipeline.py
-    ├── run_volunteer_post_qc.py
-    ├── export_pairs_to_two_gpx_and_lines.py
-    ├── batch_run_all_volunteers_anonymized.py
-    ├── run_accuracy_verification_all.py
-    ├── debug_volunteer_error_profile.py
-    ├── filter_bad_segments_all.py
-    ├── run_quality_filter_selected.py
-    └── run_quality_filter_problem_cases.py
+github_release/
+├── README.md                        # this file
+├── requirements.txt                 # Python dependencies (pinned floors)
+├── .gitignore                       # standard Python ignores
+├── glh_correct/                     # importable Python package
+│   ├── __init__.py
+│   ├── glh_parser.py                # parse Google Location History exports
+│   ├── gpx_parser.py                # parse high-precision GPX reference tracks
+│   ├── projection.py                # WGS84 ↔ British National Grid
+│   ├── cleaning.py                  # QC filters
+│   ├── sessionize.py                # sessionise GLH and GPX
+│   ├── matching.py                  # interpolate GPX truth at GLH times
+│   ├── networks.py                  # load OS MasterMap / OSM road networks
+│   ├── buildings.py                 # load OSM building footprints
+│   ├── snapping.py                  # vectorised nearest-edge snap
+│   ├── feature_engineering.py       # per-point map-context features
+│   ├── correction_rule_based.py     # Stage 2 rule-based corrector
+│   ├── model_xgboost.py             # Stage 3 XGBoost indicator / classifier
+│   └── model_hmm_mapmatch.py        # Stage 5 HMM map-matcher
+├── models/
+│   ├── stage3_1_indicator/          # 8 LOVO folds (~325 KB each)
+│   │   ├── MODEL_CARD.md
+│   │   ├── stage3_1_indicator_fold1_model.json
+│   │   ├── stage3_1_indicator_fold1_meta.json
+│   │   └── … fold2 … fold8 …
+│   └── stage5_hmm/
+│       └── hyperparameters.json     # HMM has no fitted parameters; just hyperparams
+├── examples/
+│   ├── 01_load_indicator.py         # score new data with the indicator
+│   ├── 02_run_hmm_matching.py       # map-match a session with the HMM
+│   └── 03_full_pipeline.py          # parse GLH → match GPX → predict → correct
+└── docs/
+    ├── USAGE.md                     # end-to-end recipes
+    ├── METHODOLOGY.md               # what each stage does and why
+    ├── DATA_SOURCES.md              # where to get OS MasterMap / OSM data
+    └── RESULTS.md                   # master comparison across stages
 ```
 
 ---
 
-# 4. Core scripts (what each file does)
-
----
-
-## io_glh_unified.py
-
-Unified GLH parser.
-
-Supports both:
-
-- legacy exports
-- `semanticSegments` exports
-
-Outputs a canonical GLH point table with optional metadata fields.
-
----
-
-## io_gpx_points.py
-
-GPX parser.
-
-- extracts timestamped GPS points in UTC
-- supports multiple GPX naming structures
-- no external GPX dependency required
-
----
-
-## run_volunteer_pipeline.py
-
-Main volunteer processing script.
-
-For one volunteer:
-
-- loads GLH + GPX files
-- cleans GPS trajectories
-- interpolates GPS to GLH timestamps
-- filters to GPS coverage window
-
-Writes:
-
-- `glh_points.csv`
-- `gps_points_clean.csv`
-- `gps_at_glh_timestamps.csv`
-- `qc_match.txt`
-
-Run:
+## Installation
 
 ```bash
-python src/run_volunteer_pipeline.py
+git clone <your-repo-url>
+cd glh_correct_release
+python -m venv .venv
+source .venv/bin/activate           # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
----
-
-## run_volunteer_post_qc.py
-
-Post-processing and quality-control stage.
-
-- derives `journey_id`
-- assigns `match_quality_tier`
-- generates detailed QC statistics
-
-Writes:
-
-- `gps_at_glh_timestamps_with_tiers.csv`
-- `glh_timeline_segments_with_journeys.csv`
-- `qc_match_detailed.txt`
-
-Run:
+Then either install the package locally:
 
 ```bash
-python src/run_volunteer_post_qc.py
+pip install -e .
+```
+
+…or add the release directory to `PYTHONPATH` and `import glh_correct`
+directly.
+
+> **GDAL note.** `geopandas` / `fiona` depend on GDAL. On Windows, install
+> with `conda install -c conda-forge geopandas fiona` or grab the wheels
+> from Gohlke if pip fails.
+
+---
+
+## Quick start
+
+### Score new GLH data with the magnitude indicator
+
+```python
+import pandas as pd
+from glh_correct.model_xgboost import load_bundle, predict_deviation
+from glh_correct.feature_engineering import add_map_context_features
+from glh_correct.networks import load_full_network
+from glh_correct.buildings import load_buildings_bng
+
+# 1. Parse your GLH export and project to British National Grid.
+#    See examples/03_full_pipeline.py for the full pipeline.
+glh_df = ...    # pandas frame with glh_east, glh_north, glh_layer, glh_source, ...
+
+# 2. Load the road + building context (point project_root at the folder
+#    holding map/ — see docs/DATA_SOURCES.md for what to put there).
+networks  = load_full_network(project_root="/path/to/map_root")
+buildings = load_buildings_bng(project_root="/path/to/map_root")
+
+# 3. Annotate with per-point map-context features.
+glh_df = add_map_context_features(glh_df, networks, buildings)
+
+# 4. Load any indicator fold (here fold1, the geographic-transfer fold).
+bundle = load_bundle("models/stage3_1_indicator/stage3_1_indicator_fold1")
+
+# 5. Predict per-point uncertainty (in metres).
+glh_df["predicted_deviation_m"] = predict_deviation(bundle, glh_df)
+```
+
+### Map-match a session with the HMM
+
+```python
+from glh_correct.model_hmm_mapmatch import map_match_session
+
+corrected_df = map_match_session(
+    session_df,            # one session of (east, north, time) rows
+    networks,              # combined carriageway + pedestrian network
+    max_radius_m=100.0,
+    k=5,
+    sigma_z=10.0,
+    beta=50.0,
+)
 ```
 
 ---
 
-## export_pairs_to_two_gpx_and_lines.py
+## Headline results (on our 8-track benchmark)
 
-GIS export utility.
+| Method                              | n      | median dev. (m) | p95 dev. (m) |
+|-------------------------------------|--------|-----------------|--------------|
+| Raw GLH (baseline)                  | 14,002 |  6.3            | 313.6        |
+| Stage 2 rule-based snap             | 12,119 |  9.7            | 249.5        |
+| Stage 3.2 XGBoost classifier        | 14,002 |  6.3            | 313.6        |
+| Stage 3.3 Extra Trees corrector     | 14,002 | 12.8            | 313.0        |
+| Stage 4.1 BiLSTM signed             | 13,820 | 11.6            | 317.7        |
+| Stage 4.2 BiLSTM α-hybrid           | 13,820 |  7.1            | 315.7        |
+| **Stage 5 HMM (applicable subset)** | 11,691 |  9.4            | **250.1**    |
 
-Exports valid matched points (`gps_interp_ok == TRUE`) to:
+On the Edinburgh-area subset, the HMM cuts the p95 from 243.7 m (raw) to
+**74.0 m**. The indicator's held-out Pearson(log) calibration is
+**0.687** in aggregate and **0.744** on the Edinburgh-area subset.
 
-- `exports_glh_matched_points.gpx`
-- `exports_gps_matched_points.gpx`
-- `exports_matched_pairs_lines.geojson`
-- `exports_matched_pairs_join_table.csv`
-
-Designed for ArcGIS / QGIS visualisation.
-
-Run:
-
-```bash
-python src/export_pairs_to_two_gpx_and_lines.py
-```
-
----
-
-## batch_run_all_volunteers_anonymized.py
-
-Runs the full pipeline for all volunteer folders.
-
-- supports anonymised batch processing
-- generates standardised outputs
-- handles varying file naming structures
-
-Run:
-
-```bash
-python src/batch_run_all_volunteers_anonymized.py
-```
+See `docs/RESULTS.md` for the full table and `docs/METHODOLOGY.md` for
+what each stage does and why.
 
 ---
 
-## run_accuracy_verification_all.py
+## What this release is *not*
 
-Runs overall spatial accuracy verification across volunteers.
-
-Calculates:
-
-- mean error
-- median error
-- percentile statistics
-- quality summaries
-
-Run:
-
-```bash
-python src/run_accuracy_verification_all.py
-```
+- It is not a training pipeline. The training scripts (`train_stage3*.py`,
+  `train_stage4*.py`, `train_stage5_hmm.py`) live in the parent research
+  repo and are not shipped here — most external users will only need the
+  trained indicator and the HMM (which has no trained parameters).
+- It does not bundle OS MasterMap or OSM map data. OS MasterMap is
+  licence-restricted and the OSM extracts are large. See
+  `docs/DATA_SOURCES.md` for the exact files we used and where to get
+  them.
+- It does not ship the raw matched parquet files or any reference GPS
+  data.
 
 ---
-
-## debug_volunteer_error_profile.py
-
-Detailed volunteer-level diagnostic analysis.
-
-Generates:
-
-- exact timestamp match analysis
-- high-error diagnostics
-- segment-level error profiles
-- journey-level error profiles
-
-Run:
-
-```bash
-python src/debug_volunteer_error_profile.py --anon_id V004
-```
-
----
-
-## filter_bad_segments_all.py
-
-Automatically removes low-quality trajectory segments.
-
-Default rule:
-
-```text
-median_error_m > 100
-OR
-more than 30% of points have error_m > 200
-```
-
-Outputs:
-
-- cleaned matched datasets
-- segment filtering reports
-- segment removal summaries
-
-Run:
-
-```bash
-python src/filter_bad_segments_all.py
-```
-
-Single volunteer:
-
-```bash
-python src/filter_bad_segments_all.py --anon_id V004
-```
-
----
-
-## run_quality_filter_selected.py
-
-Runs diagnostic + filtering workflow for standard volunteers.
-
-Processes:
-
-```text
-V002
-V003
-V005
-V006
-V008
-```
-
----
-
-## run_quality_filter_problem_cases.py
-
-Runs diagnostic + filtering workflow for volunteers requiring additional debugging.
-
-Processes:
-
-```text
-V001
-V004
-V007
-```
-
----
-
-# 5. Output data explanation (important)
-
----
-
-## gps_at_glh_timestamps_with_tiers.csv
-
-Each row represents one GLH `timelinePath` point, with:
-
-- original GLH location (`lat`, `lon`)
-- interpolated GPS location (`gps_lat_interp`, `gps_lon_interp`)
-- `gps_interp_ok`
-- `bracket_gap_s`
-- `match_quality_tier`
-- `segment_id`
-- `journey_id`
-
----
-
-## match_quality_tier
-
-```text
-A: ≤10 s
-B: 10–30 s
-C: 30–60 s
-D: 60–120 s
-```
-
-Smaller interpolation gaps indicate stronger temporal alignment confidence.
-
----
-
-## gps_at_glh_timestamps_with_tiers_segment_filtered.csv
-
-Final cleaned training-source dataset.
-
-Contains:
-
-- valid matched GLH–GPS pairs
-- filtered trajectory segments
-- quality metadata
-- segment/journey structure
-
-This is the recommended dataset for machine-learning model training.
-
----
-
-# 6. ArcGIS / QGIS usage
-
-Recommended workflow:
-
-Load:
-
-```text
-exports_glh_matched_points.gpx
-exports_gps_matched_points.gpx
-```
-
-Then load:
-
-```text
-exports_matched_pairs_lines.geojson
-```
-
-Recommended symbology:
-
-- `error_m`
-- `match_quality_tier`
-
-Optional attribute join:
-
-```text
-exports_matched_pairs_join_table.csv
-```
-
-using:
-
-```text
-pair_id
-```
-
-This provides a clear spatial visualisation of GLH vs GPS discrepancies.
-
----
-
-# 7. Training dataset preparation
-
-The filtered outputs can be converted into machine-learning training datasets.
-
-Recommended targets:
-
-```text
-target_delta_lat = gps_lat_interp - lat
-target_delta_lon = gps_lon_interp - lon
-```
-
-Potential input features include:
-
-- GLH coordinates
-- activity type
-- segment probability
-- interpolation quality
-- temporal context
-- road-network features
-
----
-
-# 8. Road network integration
-
-Road network data can optionally be integrated for:
-
-- nearest-road distance calculation
-- contextual feature engineering
-- trajectory plausibility checks
-- future map-matching experiments
-
-Recommended usage is during feature engineering rather than initial matching.
-
----
-
-# 9. Privacy and anonymisation
-
-The workflow uses anonymised volunteer IDs:
-
-```text
-V001
-V002
-V003
-...
-```
-
-Raw participant identifiers and original location data should remain local and must not be committed to GitHub.
-
----
-
-# 10. Recommended .gitignore
-
-```gitignore
-raw_data/
-interim/
-training_data/
-
-*.csv
-*.json
-*.gpx
-*.geojson
-*.txt
-
-__pycache__/
-*.pyc
-.venv/
-venv/
-```
-
----
-
-# 11. Current status
-
-The pipeline currently supports:
-
-- multiple GLH formats
-- anonymised batch volunteer processing
-- GPS cleaning and interpolation
-- spatial accuracy verification
-- automated segment filtering
-- GIS export
-- generation of training-ready matched datasets
-
-The next planned stage is machine-learning model development for GLH spatial correction and trajectory refinement.
-
----
-
-# 12. Citation / acknowledgement
-
-If using this workflow in research or publications, please cite or acknowledge the repository appropriately.
-
