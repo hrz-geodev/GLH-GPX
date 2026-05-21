@@ -1,0 +1,27 @@
+{
+  "model": "Stage 5 — Newson-Krumm-style HMM map-matching",
+  "notes": [
+    "Stage 5 has no fitted parameters. The HMM uses analytic emission and",
+    "transition models, so the only artefacts that ship are the hyperparameters",
+    "validated on the held-out volunteers.",
+    "Hidden state = network edge. Emission ~ N(perpendicular distance, sigma_z).",
+    "Transition penalises pairs of candidates whose on-edge displacement is",
+    "inconsistent with the observed displacement (route-ratio proxy)."
+  ],
+  "hyperparameters": {
+    "max_radius_m": 100.0,
+    "k": 5,
+    "sigma_z": 10.0,
+    "beta": 50.0,
+    "min_session_len": 2
+  },
+  "validated_on": {
+    "dataset": "8 volunteers, Edinburgh + 5-city UK extension",
+    "n_matched_rows": 14002,
+    "hmm_applicable_rows": 11691,
+    "hmm_applicable_pct": 83.5,
+    "median_deviation_excl_v1_m": 12.8,
+    "p95_deviation_excl_v1_m": 74.0
+  },
+  "reference": "See glh_correct/model_hmm_mapmatch.py and docs/METHODOLOGY.md"
+}

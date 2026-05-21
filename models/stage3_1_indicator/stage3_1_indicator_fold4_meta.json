@@ -1,0 +1,40 @@
+{
+  "feature_columns": [
+    "glh_accuracy_m",
+    "glh_speed_mps",
+    "nearest_car_distance_m",
+    "nearest_ped_distance_m",
+    "dist_to_nearest_network_m",
+    "nearest_building_m",
+    "n_buildings_50m",
+    "building_area_50m_m2",
+    "n_buildings_100m",
+    "building_area_100m_m2",
+    "corrected_snap_distance_m",
+    "bearing_to_nearest_car_sin",
+    "bearing_to_nearest_car_cos",
+    "bearing_to_nearest_ped_sin",
+    "bearing_to_nearest_ped_cos",
+    "inside_building",
+    "glh_source__GPS",
+    "glh_source__WIFI",
+    "glh_layer__raw_signals",
+    "glh_layer__timeline_paths",
+    "corrected_glh_network_kind__carriageway",
+    "corrected_glh_network_kind__pedestrian"
+  ],
+  "categorical_levels": {
+    "glh_source": [
+      "GPS",
+      "WIFI"
+    ],
+    "glh_layer": [
+      "raw_signals",
+      "timeline_paths"
+    ],
+    "corrected_glh_network_kind": [
+      "carriageway",
+      "pedestrian"
+    ]
+  }
+}
