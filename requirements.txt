@@ -1,0 +1,27 @@
+# glh_correct — Python runtime requirements
+# Versions match the environment in which the shipped models were trained.
+
+# Core data handling
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Parsing
+gpxpy>=1.6.0
+python-dateutil>=2.8.0
+
+# Geospatial
+geopandas>=0.14.0
+shapely>=2.0.0
+fiona>=1.9.0           # required for reading .shp / .gdb
+pyproj>=3.6.0          # WGS84 ↔ BNG transforms
+
+# Modelling
+xgboost>=2.0.0         # Stage 3.1 indicator
+scikit-learn>=1.3.0    # utility metrics
+
+# I/O
+pyarrow>=14.0.0        # parquet support
+
+# Progress / visualisation (optional but used by examples)
+tqdm>=4.65.0
+matplotlib>=3.7.0
