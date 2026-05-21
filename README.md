@@ -43,23 +43,12 @@ github_release/
 │   ├── correction_rule_based.py     # Stage 2 rule-based corrector
 │   ├── model_xgboost.py             # Stage 3 XGBoost indicator / classifier
 │   └── model_hmm_mapmatch.py        # Stage 5 HMM map-matcher
-├── models/
-│   ├── stage3_1_indicator/          # 8 LOVO folds (~325 KB each)
-│   │   ├── MODEL_CARD.md
-│   │   ├── stage3_1_indicator_fold1_model.json
-│   │   ├── stage3_1_indicator_fold1_meta.json
-│   │   └── … fold2 … fold8 …
-│   └── stage5_hmm/
-│       └── hyperparameters.json     # HMM has no fitted parameters; just hyperparams
 ├── examples/
 │   ├── 01_load_indicator.py         # score new data with the indicator
 │   ├── 02_run_hmm_matching.py       # map-match a session with the HMM
 │   └── 03_full_pipeline.py          # parse GLH → match GPX → predict → correct
 └── docs/
-    ├── USAGE.md                     # end-to-end recipes
-    ├── METHODOLOGY.md               # what each stage does and why
-    ├── DATA_SOURCES.md              # where to get OS MasterMap / OSM data
-    └── RESULTS.md                   # master comparison across stages
+    └──  METHODOLOGY.md               # what each stage does and why
 ```
 
 ---
