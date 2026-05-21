@@ -43,12 +43,10 @@ github_release/
 │   ├── correction_rule_based.py     # Stage 2 rule-based corrector
 │   ├── model_xgboost.py             # Stage 3 XGBoost indicator / classifier
 │   └── model_hmm_mapmatch.py        # Stage 5 HMM map-matcher
-├── examples/
-│   ├── 01_load_indicator.py         # score new data with the indicator
-│   ├── 02_run_hmm_matching.py       # map-match a session with the HMM
-│   └── 03_full_pipeline.py          # parse GLH → match GPX → predict → correct
-└── docs/
-    └──  METHODOLOGY.md               # what each stage does and why
+└── examples/
+    ├── 01_load_indicator.py         # score new data with the indicator
+    ├── 02_run_hmm_matching.py       # map-match a session with the HMM
+    └── 03_full_pipeline.py          # parse GLH → match GPX → predict → correct
 ```
 
 ---
