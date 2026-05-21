@@ -123,29 +123,6 @@ corrected_df = map_match_session(
 )
 ```
 
----
-
-## Headline results (on our 8-track benchmark)
-
-| Method                              | n      | median dev. (m) | p95 dev. (m) |
-|-------------------------------------|--------|-----------------|--------------|
-| Raw GLH (baseline)                  | 14,002 |  6.3            | 313.6        |
-| Stage 2 rule-based snap             | 12,119 |  9.7            | 249.5        |
-| Stage 3.2 XGBoost classifier        | 14,002 |  6.3            | 313.6        |
-| Stage 3.3 Extra Trees corrector     | 14,002 | 12.8            | 313.0        |
-| Stage 4.1 BiLSTM signed             | 13,820 | 11.6            | 317.7        |
-| Stage 4.2 BiLSTM α-hybrid           | 13,820 |  7.1            | 315.7        |
-| **Stage 5 HMM (applicable subset)** | 11,691 |  9.4            | **250.1**    |
-
-On the Edinburgh-area subset, the HMM cuts the p95 from 243.7 m (raw) to
-**74.0 m**. The indicator's held-out Pearson(log) calibration is
-**0.687** in aggregate and **0.744** on the Edinburgh-area subset.
-
-See `docs/RESULTS.md` for the full table and `docs/METHODOLOGY.md` for
-what each stage does and why.
-
----
-
 ## What this release is *not*
 
 - It is not a training pipeline. The training scripts (`train_stage3*.py`,
